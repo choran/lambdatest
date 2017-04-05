@@ -7,8 +7,10 @@ var translate = google.translate('v2');
 var os = require("os");
 var Intercom = require('intercom-client');
 
-var client = new Intercom.Client({ token:  process.env['AT_TEST']});
-var API_KEY =  process.env['GOOGLE_API']; // specify your API key here
+// process.env accesses environment variables defined in Lambda function
+var client = new Intercom.Client({ token:  process.env.intercom_at});
+var API_KEY =  process.env.google_api; // specify your API key here
+
 var lang = 'none';
 var result = 'NOT TRANSLATED';
 var text =  event.key1;
