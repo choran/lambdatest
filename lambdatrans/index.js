@@ -1,6 +1,6 @@
 exports.handler = function (event, context, callback) {
-console.log('value1 =', event.key1);
-console.log('value2 =', event.key2);
+console.log('value2 =', JSON.stringify(event.data.item.id));
+console.log('value1 =', JSON.stringify(event.data.item.conversation_message.body));
 
 var google = require('googleapis');
 var translate = google.translate('v2');
@@ -13,8 +13,8 @@ var API_KEY =  process.env.google_api; // specify your API key here
 
 var lang = 'none';
 var result = 'NOT TRANSLATED';
-var text =  event.key1;
-console.log(event.key1)
+var text =  JSON.stringify(event.data.item.conversation_message.body);
+console.log(text)
 
 translate.detections.list({
     auth: API_KEY,
@@ -37,16 +37,11 @@ function set_lang(convo_lang) {
         console.log('Result: ' + (err ? err.message : data.data.translations[0].translatedText));
 	result = data.data.translations[0].translatedText;
 	if (lang != "en") {
-    	  write_note(result, event.key2);
-    	  console.log(event.key1 + "<=>" + event.key2)
+    	  write_note(result, JSON.stringify(event.data.item.id));
+    	  console.log(result + "<=>" + JSON.stringify(event.data.item.id));
 	}
     });
 }
-
-//if (lang != "en") {
-//    write_note(result, event.key2);
-//    console.log(event.key1 + "<=>" + event.key2)
-//}
 
 function write_note(text, convo_id) {
 console.log("ID " + convo_id.replace(/^"(.*)"$/, '$1'));
@@ -63,5 +58,18 @@ client.conversations.reply(note, function (rsp){
     console.log(rsp.body)
 });
 }
-callback(null, 'COMPLETED: '  + text);
+var responseBody = {
+    message: "Hello ",
+    input: event
+};
+var response = {
+    statusCode: "500",
+    headers: {
+        "x-custom-header" : "my custom header value"
+    },
+    body: JSON.stringify(responseBody)
+};
+console.log("response: " + JSON.stringify(response))
+callback(null, response);
+//callback(null, 'COMPLETED: '  + text);
 }
