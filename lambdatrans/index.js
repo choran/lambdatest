@@ -59,11 +59,11 @@ client.conversations.reply(note, function (rsp){
 });
 }
 var responseBody = {
-    message: "Hello ",
+    message: "Intercom Translation",
     input: event
 };
 var response = {
-    statusCode: "500",
+    statusCode: "200",
     headers: {
         "x-custom-header" : "my custom header value"
     },
@@ -71,5 +71,4 @@ var response = {
 };
 console.log("response: " + JSON.stringify(response))
 callback(null, response);
-//callback(null, 'COMPLETED: '  + text);
 }
