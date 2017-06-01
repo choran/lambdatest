@@ -5,6 +5,8 @@ var google = require('googleapis');
 var translate = google.translate('v2');
 var os = require("os");
 var Intercom = require('intercom-client');
+var crypto = require('crypto');
+const secret = '<WEBHOOK SECRET>';
 
 // process.env accesses environment variables defined in Lambda function
 var client = new Intercom.Client({ token:  process.env.intercom_at});
@@ -13,12 +15,32 @@ var admin = process.env.admin_id;
 var lang = 'none';
 var target = 'en';
 var result = 'NOT TRANSLATED';
-var text =  JSON.stringify(event.data.item.conversation_message.body);
-var convo_id = JSON.stringify(event.data.item.id);
+var expected = JSON.stringify(event.params.header["X-Hub-Signature"]);
+if (event['body-json'].data.item.conversation_parts.total_count>0){
+    var text =  JSON.stringify(event['body-json'].data.item.conversation_parts.conversation_parts[0].body);
+} else {
+    var text =  JSON.stringify(event['body-json'].data.item.conversation_message.body);
+}
+var convo_id = JSON.stringify(event['body-json'].data.item.id);
 
-/* First detect the language. If it is non english then we want to translate it
- * Otherwise do nothing. No need to write any note to the conversation
- */
+/* API gateway seems to slightly change the format of the body when it adds it to the JSON object structure
+to pass through to the lambda function. While the data is the same the layout is different causing the HASHs
+to be different. I am not sure we can use the signing in this case. You can use a different setup in the lambda
+service to simply proxy the payload directly so if signing is needed then that could be used instead of currest method
+where payload is parsed into a JS object */
+console.log("PAYLOAD: "+ JSON.stringify(event['body-json'].data));
+var calculated = 'sha1=' + crypto.createHmac('sha1', secret).update((event['body-json'].data).toString()).digest('hex');
+console.log("SHA: "+ calculated);
+console.log("EXPECTED: "+ expected);
+
+/* We can return a HTTP 200 now since the translate calls will cause the webhook to timeout and resend the notificaiton
+IF it does not work then it simply will not populate the conversation with the note. This is better than getting
+duplicates each time */
+callback(null, response);
+
+    /* First detect the language. If it is non english then we want to translate it
+     * Otherwise do nothing. No need to write any note to the conversation
+     */
 translate.detections.list({
     auth: API_KEY,
     q: text,
@@ -28,6 +50,7 @@ translate.detections.list({
     /* If its not the target language then we need to translate the 
     * text and write that as a note to the conversation
     */
+    console.log("DETECT: " + lang);
     if (lang != target) {
       set_lang(lang)
       console.log("Language detected as: " + lang);
@@ -58,7 +81,7 @@ var note = {
     type: "admin",
     message_type: "note",
     admin_id: admin,
-    body:"Translation:" + text.replace(/.*<p>(.*)<\/p>.*$/, '$1')
+    body:"Language: " + lang + "\nTranslation:" + text.replace(/.*<p>(.*)<\/p>.*$/, '$1')
 }; 
 
 client.conversations.reply(note, function (rsp){
@@ -72,10 +95,10 @@ var responseBody = {
 var response = {
     statusCode: "200",
     headers: {
-        "x-custom-header" : "my custom header value"
+        "x-custom-header" : "Intercom Translation"
     },
     body: JSON.stringify(responseBody)
 };
 console.log("response: " + JSON.stringify(response))
-callback(null, response);
+
 }
